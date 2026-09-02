@@ -22,3 +22,20 @@ export interface BreadcrumbEntry {
   id: string; // 'root' for top-level
   name: string;
 }
+
+export interface UserShare {
+  id: string;
+  role: 'viewer' | 'editor';
+  created_at: string;
+  grantee_user_id: string;
+  users: { email: string; name: string } | null;
+}
+
+export interface LinkShare {
+  id: string;
+  token: string;
+  role: string;
+  expires_at: string | null;
+  hasPassword: boolean;
+  created_at: string;
+}

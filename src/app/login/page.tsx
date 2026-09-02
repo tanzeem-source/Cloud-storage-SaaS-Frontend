@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,11 +17,12 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await apiFetch('/api/auth/login', {
-        method: 'POST',
+      await apiFetch("/api/auth/login", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.push('/dashboard');
+       const redirect = searchParams.get('redirect');
+      router.push(redirect || '/dashboard');
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -1,27 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
     try {
-      await apiFetch('/api/auth/signup', {
-        method: 'POST',
+      await apiFetch("/api/auth/signup", {
+        method: "POST",
         body: JSON.stringify({ name, email, password }),
       });
-      router.push('/dashboard');
+      const redirect = searchParams.get("redirect");
+      router.push(redirect || "/dashboard");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -32,15 +34,21 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white p-8 rounded-lg shadow">
-        <h1 className="text-2xl font-semibold mb-6 text-center">Create an account</h1>
+        <h1 className="text-2xl font-semibold mb-6 text-center">
+          Create an account
+        </h1>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">{error}</div>
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">
+            {error}
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name
+            </label>
             <input
               type="text"
               value={name}
@@ -50,7 +58,9 @@ export default function SignupPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -60,7 +70,9 @@ export default function SignupPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -75,13 +87,15 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Sign up'}
+            {loading ? "Creating account..." : "Sign up"}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-600">
-          Already have an account?{' '}
-          <a href="/login" className="text-blue-600 hover:underline">Log in</a>
+          Already have an account?{" "}
+          <a href="/login" className="text-blue-600 hover:underline">
+            Log in
+          </a>
         </p>
       </div>
     </div>
