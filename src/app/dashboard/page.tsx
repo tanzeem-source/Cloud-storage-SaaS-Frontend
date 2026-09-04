@@ -14,9 +14,14 @@ import SearchBar from "@/components/SearchBar";
 import SortControl from "@/components/SortControl";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getCached, setCached, invalidateCache } from "@/lib/cache";
+import Link from "next/link";
+import ItemMenu from "@/components/ItemMenu";
+import { useToast } from "@/components/Toast";
+import VersionHistory from "@/components/VersionHistory";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [trail, setTrail] = useState<BreadcrumbEntry[]>([
     { id: "root", name: "My Drive" },
   ]);
@@ -41,6 +46,11 @@ export default function DashboardPage() {
 
   const [filePage, setFilePage] = useState(1);
   const [filePagination, setFilePagination] = useState<any>(null);
+
+  const [versionTarget, setVersionTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const currentFolderId = trail[trail.length - 1].id;
 
@@ -87,14 +97,11 @@ export default function DashboardPage() {
     [sortBy, order],
   );
 
-  // Reset to page 1 whenever folder, sort, or order changes
   useEffect(() => {
     setFilePage(1);
     loadContents(currentFolderId, 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolderId, sortBy, order]);
 
-  // Real-time search (debounced)
   useEffect(() => {
     if (!debouncedQuery.trim()) {
       setSearchResults(null);
@@ -150,17 +157,66 @@ export default function DashboardPage() {
   const displayFiles = searchResults !== null ? searchResults : files;
   const isSearchMode = searchResults !== null;
 
+  function handleDeleteFolder(id: string, name: string) {
+    throw new Error("Function not implemented.");
+  }
+
+  async function handleDeleteFile(fileId: string, fileName: string) {
+    if (!confirm(`Move "${fileName}" to trash?`)) return;
+    try {
+      await apiFetch(`/api/files/${fileId}`, { method: "DELETE" });
+      showToast(`"${fileName}" moved to trash`, "success");
+      invalidateCache(`folder:${currentFolderId}`);
+      loadContents(currentFolderId, 1, false);
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  }
+
+  async function handleCreateFolder() {
+    const name = prompt("Folder name:");
+    if (!name || !name.trim()) return;
+    try {
+      await apiFetch("/api/folders", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          parent_id: currentFolderId === "root" ? null : currentFolderId,
+        }),
+      });
+      showToast(`Folder "${name}" created`, "success");
+      invalidateCache(`folder:${currentFolderId}`);
+      loadContents(currentFolderId, 1, false);
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">My Drive</h1>
-          <button
-            onClick={handleLogout}
-            className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCreateFolder}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              + New folder
+            </button>
+            <Link
+              href="/trash"
+              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100"
+            >
+              Trash
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100"
+            >
+              Log out
+            </button>
+          </div>
         </div>
 
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
@@ -214,16 +270,38 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {!isSearchMode &&
                 folders.map((folder) => (
-                  <button
-                    key={folder.id}
-                    onClick={() => openFolder(folder)}
-                    className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition text-center"
-                  >
-                    <FolderIcon />
-                    <span className="mt-2 text-sm font-medium text-gray-800 truncate w-full">
-                      {folder.name}
-                    </span>
-                  </button>
+                  <div key={folder.id} className="relative group">
+                    <button
+                      onClick={() => openFolder(folder)}
+                      className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition text-center w-full"
+                    >
+                      <FolderIcon />
+                      <span className="mt-2 text-sm font-medium text-gray-800 truncate w-full">
+                        {folder.name}
+                      </span>
+                    </button>
+                    <div className="absolute top-1 right-1">
+                      <ItemMenu
+                        actions={[
+                          {
+                            label: "Share",
+                            onClick: () =>
+                              setShareTarget({
+                                type: "folder",
+                                id: folder.id,
+                                name: folder.name,
+                              }),
+                          },
+                          {
+                            label: "Move to Trash",
+                            onClick: () =>
+                              handleDeleteFolder(folder.id, folder.name),
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
                 ))}
 
               {displayFiles.map((file) => (
@@ -241,19 +319,31 @@ export default function DashboardPage() {
                       {formatDate(file.created_at)}
                     </span>
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShareTarget({
-                        type: "file",
-                        id: file.id,
-                        name: file.name,
-                      });
-                    }}
-                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition bg-white rounded-full p-1 shadow text-xs"
-                  >
-                    🔗
-                  </button>
+                  <div className="absolute top-1 right-1">
+                    <ItemMenu
+                      actions={[
+                        {
+                          label: "Share",
+                          onClick: () =>
+                            setShareTarget({
+                              type: "file",
+                              id: file.id,
+                              name: file.name,
+                            }),
+                        },
+                        {
+                          label: "Version history",
+                          onClick: () =>
+                            setVersionTarget({ id: file.id, name: file.name }),
+                        },
+                        {
+                          label: "Move to Trash",
+                          onClick: () => handleDeleteFile(file.id, file.name),
+                          danger: true,
+                        },
+                      ]}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -283,6 +373,14 @@ export default function DashboardPage() {
           resourceId={shareTarget.id}
           resourceName={shareTarget.name}
           onClose={() => setShareTarget(null)}
+        />
+      )}
+      {versionTarget && (
+        <VersionHistory
+          fileId={versionTarget.id}
+          fileName={versionTarget.name}
+          onClose={() => setVersionTarget(null)}
+          onUpdated={() => loadContents(currentFolderId, 1, false)}
         />
       )}
     </div>

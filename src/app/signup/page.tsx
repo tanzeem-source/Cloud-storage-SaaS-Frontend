@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       });
       const redirect = searchParams.get("redirect");
-      router.push(redirect || "/dashboard");
+      router.replace(redirect || "/dashboard");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -90,6 +91,13 @@ export default function SignupPage() {
             {loading ? "Creating account..." : "Sign up"}
           </button>
         </form>
+
+        <div className="my-4 flex items-center gap-2">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">OR</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+        <GoogleSignInButton redirect={searchParams.get("redirect")} />
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
