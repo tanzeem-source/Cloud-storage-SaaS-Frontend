@@ -1,7 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
 export async function apiFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {  // no more API_URL prefix — path is already relative, e.g. '/api/auth/login'
     ...options,
     credentials: 'include',
     headers: {

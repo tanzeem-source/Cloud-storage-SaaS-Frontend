@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
 export function uploadFileWithProgress(
   file: File,
   folderId: string | null,
@@ -11,7 +9,7 @@ export function uploadFileWithProgress(
     formData.append('file', file);
     if (folderId) formData.append('folder_id', folderId);
 
-    xhr.open('POST', `${API_URL}/api/files/upload`);
+    xhr.open('POST', '/api/files/upload'); // relative path — goes through the Next.js proxy now
     xhr.withCredentials = true; // sends the auth cookie
 
     xhr.upload.onprogress = (e) => {
