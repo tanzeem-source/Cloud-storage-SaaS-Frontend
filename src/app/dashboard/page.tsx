@@ -175,9 +175,17 @@ export default function DashboardPage() {
   const displayFiles = searchResults !== null ? searchResults : files;
   const isSearchMode = searchResults !== null;
 
-  function handleDeleteFolder(id: string, name: string) {
-    throw new Error("Function not implemented.");
+ async function handleDeleteFolder(id: string, name: string) {
+  if (!confirm(`Move "${name}" and everything inside it to trash?`)) return;
+  try {
+    await apiFetch(`/api/folders/${id}`, { method: 'DELETE' });
+    showToast(`"${name}" moved to trash`, 'success');
+    invalidateCache(`folder:${currentFolderId}`);
+    loadContents(currentFolderId, 1, false);
+  } catch (err: any) {
+    showToast(err.message, 'error');
   }
+}
 
   async function handleDeleteFile(fileId: string, fileName: string) {
     if (!confirm(`Move "${fileName}" to trash?`)) return;
