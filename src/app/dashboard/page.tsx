@@ -18,6 +18,8 @@ import Link from "next/link";
 import ItemMenu from "@/components/ItemMenu";
 import { useToast } from "@/components/Toast";
 import VersionHistory from "@/components/VersionHistory";
+import ViewToggle from "@/components/ViewToggle";
+import ListRow from "@/components/ListRow";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -53,6 +55,22 @@ export default function DashboardPage() {
   } | null>(null);
 
   const currentFolderId = trail[trail.length - 1].id;
+
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Restore saved viewMode preference on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("viewMode");
+    if (saved === "grid" || saved === "list") {
+      setViewMode(saved);
+    }
+  }, []);
+
+  // Handler to update viewMode and persist to localStorage
+  function handleViewChange(mode: "grid" | "list") {
+    setViewMode(mode);
+    localStorage.setItem("viewMode", mode);
+  }
 
   const loadContents = useCallback(
     async (folderId: string, page = 1, useCache = true) => {
@@ -232,14 +250,17 @@ export default function DashboardPage() {
           />
         )}
 
-        <SortControl
-          sortBy={sortBy}
-          order={order}
-          onChange={(s, o) => {
-            setSortBy(s);
-            setOrder(o);
-          }}
-        />
+        <div className="flex items-center justify-between mb-4">
+          <SortControl
+            sortBy={sortBy}
+            order={order}
+            onChange={(s, o) => {
+              setSortBy(s);
+              setOrder(o);
+            }}
+          />
+          <ViewToggle view={viewMode} onChange={handleViewChange} />
+        </div>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">
@@ -267,17 +288,57 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {!isSearchMode &&
-                folders.map((folder) => (
-                  <div key={folder.id} className="relative group">
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {!isSearchMode &&
+                  folders.map((folder) => (
+                    <div key={folder.id} className="relative group">
+                      <button
+                        onClick={() => openFolder(folder)}
+                        className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition text-center w-full"
+                      >
+                        <FolderIcon />
+                        <span className="mt-2 text-sm font-medium text-gray-800 truncate w-full">
+                          {folder.name}
+                        </span>
+                      </button>
+                      <div className="absolute top-1 right-1">
+                        <ItemMenu
+                          actions={[
+                            {
+                              label: "Share",
+                              onClick: () =>
+                                setShareTarget({
+                                  type: "folder",
+                                  id: folder.id,
+                                  name: folder.name,
+                                }),
+                            },
+                            {
+                              label: "Move to Trash",
+                              onClick: () =>
+                                handleDeleteFolder(folder.id, folder.name),
+                              danger: true,
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                {displayFiles.map((file) => (
+                  <div key={file.id} className="relative group">
                     <button
-                      onClick={() => openFolder(folder)}
+                      onClick={() => setPreviewFile(file)}
                       className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition text-center w-full"
                     >
-                      <FolderIcon />
+                      <FileIcon />
                       <span className="mt-2 text-sm font-medium text-gray-800 truncate w-full">
-                        {folder.name}
+                        {file.name}
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1">
+                        {formatBytes(file.size_bytes)} ·{" "}
+                        {formatDate(file.created_at)}
                       </span>
                     </button>
                     <div className="absolute top-1 right-1">
@@ -287,15 +348,19 @@ export default function DashboardPage() {
                             label: "Share",
                             onClick: () =>
                               setShareTarget({
-                                type: "folder",
-                                id: folder.id,
-                                name: folder.name,
+                                type: "file",
+                                id: file.id,
+                                name: file.name,
                               }),
                           },
                           {
-                            label: "Move to Trash",
+                            label: "Version history",
                             onClick: () =>
-                              handleDeleteFolder(folder.id, folder.name),
+                              setVersionTarget({ id: file.id, name: file.name }),
+                          },
+                          {
+                            label: "Move to Trash",
+                            onClick: () => handleDeleteFile(file.id, file.name),
                             danger: true,
                           },
                         ]}
@@ -303,50 +368,69 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
-
-              {displayFiles.map((file) => (
-                <div key={file.id} className="relative group">
-                  <button
-                    onClick={() => setPreviewFile(file)}
-                    className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition text-center w-full"
-                  >
-                    <FileIcon />
-                    <span className="mt-2 text-sm font-medium text-gray-800 truncate w-full">
-                      {file.name}
-                    </span>
-                    <span className="text-xs text-gray-400 mt-1">
-                      {formatBytes(file.size_bytes)} ·{" "}
-                      {formatDate(file.created_at)}
-                    </span>
-                  </button>
-                  <div className="absolute top-1 right-1">
-                    <ItemMenu
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                {!isSearchMode &&
+                  folders.map((folder) => (
+                    <ListRow
+                      key={folder.id}
+                      type="folder"
+                      name={folder.name}
+                      date={folder.updated_at}
+                      onOpen={() => openFolder(folder)}
                       actions={[
                         {
                           label: "Share",
                           onClick: () =>
                             setShareTarget({
-                              type: "file",
-                              id: file.id,
-                              name: file.name,
+                              type: "folder",
+                              id: folder.id,
+                              name: folder.name,
                             }),
                         },
                         {
-                          label: "Version history",
-                          onClick: () =>
-                            setVersionTarget({ id: file.id, name: file.name }),
-                        },
-                        {
                           label: "Move to Trash",
-                          onClick: () => handleDeleteFile(file.id, file.name),
+                          onClick: () =>
+                            handleDeleteFolder(folder.id, folder.name),
                           danger: true,
                         },
                       ]}
                     />
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))}
+                {displayFiles.map((file) => (
+                  <ListRow
+                    key={file.id}
+                    type="file"
+                    name={file.name}
+                    sizeBytes={file.size_bytes}
+                    date={file.created_at}
+                    onOpen={() => setPreviewFile(file)}
+                    actions={[
+                      {
+                        label: "Share",
+                        onClick: () =>
+                          setShareTarget({
+                            type: "file",
+                            id: file.id,
+                            name: file.name,
+                          }),
+                      },
+                      {
+                        label: "Version history",
+                        onClick: () =>
+                          setVersionTarget({ id: file.id, name: file.name }),
+                      },
+                      {
+                        label: "Move to Trash",
+                        onClick: () => handleDeleteFile(file.id, file.name),
+                        danger: true,
+                      },
+                    ]}
+                  />
+                ))}
+              </div>
+            )}
 
             {!isSearchMode &&
               filePagination &&
